@@ -1,0 +1,23 @@
+services:
+
+  loto-db:
+    image: postgres:16.4
+    container_name: loto-db
+    restart: always
+    ports:
+      - 5431:5432
+    environment:
+      POSTGRES_PASSWORD: "the_hardest_password_in_the_universe"
+      # TZ: "GMT-3"
+      # PGTZ: "GMT-3"
+    volumes:
+      - loto-data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - app-network
+
+volumes:
+  loto-data:
+
+networks:
+  app-network:
