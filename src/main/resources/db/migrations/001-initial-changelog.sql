@@ -38,4 +38,3 @@ ALTER TABLE "tb_dezenas_jogos" ADD CONSTRAINT "fkjhtsewqxmiwvyx17ot9w52hlr" FORE
 
 -- changeset nicoletti:1734468468510-13
 ALTER TABLE "tb_premios" ADD CONSTRAINT "fkp6od1aq8jjunymsgj4j26qo51" FOREIGN KEY ("jogo_id") REFERENCES "tb_jogos" ("id") ON UPDATE NO ACTION ON DELETE NO ACTION;
-

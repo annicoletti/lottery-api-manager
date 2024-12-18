@@ -9,28 +9,27 @@ import br.com.nicoletti.loto.exceptions.RestServiceException;
 
 public class LotoUtils {
 
-    public static boolean isNullOrEmpty(Object object) {
+	public static boolean isNullOrEmpty(Object object) {
 
-        if (object == null) {
-            return true;
-        }
+		if (object == null) {
+			return true;
+		}
 
-        if (object instanceof String value) {
-            return value.isBlank();
-        }
+		if (object instanceof String value) {
+			return value.isBlank();
+		}
 
-        return false;
-    }
+		return false;
+	}
 
+	public static Instant parseStringToInstant(String dataInicial) {
+		try {
+			SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd/MM/yyyy");
+			Date parse = simpleDateFormat.parse(dataInicial);
+			return parse.toInstant();
 
-    public static Instant parseStringToInstant(String dataInicial) {
-        try {
-            SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd/MM/yyyy");
-            Date parse = simpleDateFormat.parse(dataInicial);
-            return parse.toInstant();
-
-        } catch (ParseException e) {
-            throw new RestServiceException(e.getMessage());
-        }
-    }
+		} catch (ParseException e) {
+			throw new RestServiceException(e.getMessage());
+		}
+	}
 }
