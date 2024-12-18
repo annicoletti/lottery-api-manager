@@ -1,6 +1,7 @@
 package br.com.nicoletti.loto.services;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -8,6 +9,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -16,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import br.com.nicoletti.loto.beans.dto.ApostaAutomaticaDTO;
+import br.com.nicoletti.loto.beans.dto.DezenaSorteadaDTO;
 import br.com.nicoletti.loto.beans.dto.EstatisticaLinhaTO;
 import br.com.nicoletti.loto.beans.dto.JogoDTO;
 import br.com.nicoletti.loto.beans.dto.ProgressaoLinearTO;
@@ -24,119 +27,158 @@ import br.com.nicoletti.loto.beans.dto.TipoJogoDTO;
 @Service
 public class GeradorService {
 
-    private final Logger logger = LoggerFactory.getLogger(GeradorService.class);
+	private final Logger logger = LoggerFactory.getLogger(GeradorService.class);
 
-    @Autowired
-    private JogoService jogoService;
+	@Autowired
+	private JogoService jogoService;
 
-    @Autowired
-    private TipoJogoService tipoJogoService;
+	@Autowired
+	private TipoJogoService tipoJogoService;
 
-    @Autowired
-    private EstatisticaService estatisticaService;
+	@Autowired
+	private EstatisticaService estatisticaService;
 
-    @Autowired
-    private ApostaService apostaService;
+	@Autowired
+	private ApostaService apostaService;
 
-    public List<Set<Integer>> createAuto(ApostaAutomaticaDTO dto) {
+	public List<Set<Integer>> createAuto(ApostaAutomaticaDTO dto) {
 
 //        List<JogoDTO> todosJogos = jogoService.getAllLotoResult(dto.getTipoJogo());
 //        Map<Integer, Integer> quantidade = somaTotaisNumerosSorteados(todosJogos);
 //        logger.info("NUMEROS: {}", quantidade);
 
-        List<Set<Integer>> numerosGerados = geradorNumerosAleatorio(dto.getTipoJogo(), dto.getQuantidadeNumeros(), dto.getQuantidadeJogos());
-        return numerosGerados;
-    }
+		List<Set<Integer>> numerosGerados = geradorNumerosAleatorio(dto.getTipoJogo(), dto.getQuantidadeNumeros(),
+				dto.getQuantidadeJogos());
+		return numerosGerados;
+	}
 
-    private Map<Integer, Integer> somaTotaisNumerosSorteados(List<JogoDTO> jogos) {
-        Map<Integer, Integer> quantidade = new TreeMap<>();
-        jogos.forEach(jogo -> jogo.getDezenas().forEach(dezena -> quantidade.merge(dezena.getDezena(), 1, Integer::sum)));
-        return quantidade;
-    }
+	private Map<Integer, Integer> somaTotaisNumerosSorteados(List<JogoDTO> jogos) {
+		Map<Integer, Integer> quantidade = new TreeMap<>();
+		jogos.forEach(
+				jogo -> jogo.getDezenas().forEach(dezena -> quantidade.merge(dezena.getDezena(), 1, Integer::sum)));
+		return quantidade;
+	}
 
-    public List<Set<Integer>> geradorNumerosAleatorio(String tipoJogo, Integer quantidadeNumeros, Integer quantidade) {
-        List<Set<Integer>> out = new ArrayList<>();
-        Random random = new Random();
+	public List<Set<Integer>> geradorNumerosAleatorio(String tipoJogo, Integer quantidadeNumeros, Integer quantidade) {
+		List<Set<Integer>> out = new ArrayList<>();
+		Random random = new Random();
 
-        TipoJogoDTO tipoJogoDTO = tipoJogoService.get(tipoJogo);
-        int maximo = tipoJogoDTO.getQuantidadeNumerosDisponiveis();
+		TipoJogoDTO tipoJogoDTO = tipoJogoService.get(tipoJogo);
+		int maximo = tipoJogoDTO.getQuantidadeNumerosDisponiveis();
 
-        while (out.size() < quantidade) {
-            //Adiciona numeros na até atingir a quantidade do jogo
-            Set<Integer> numeros = new TreeSet<>();
-            while (numeros.size() < quantidadeNumeros) {
-                int rand = random.nextInt(maximo) + 1;
-                numeros.add(rand);
-            }
+		while (out.size() < quantidade) {
+			// Adiciona numeros na até atingir a quantidade do jogo
+			Set<Integer> numeros = new TreeSet<>();
+			while (numeros.size() < quantidadeNumeros) {
+				int rand = random.nextInt(maximo) + 1;
+				numeros.add(rand);
+			}
 
-            boolean premiado = apostaService.verificaSeNumeroJaFoiSorteado(numeros, tipoJogoDTO);
-            if (!premiado) {
-                out.add(numeros);
-            }
-        }
+			boolean premiado = apostaService.verificaSeNumeroJaFoiSorteado(numeros, tipoJogoDTO);
+			if (!premiado) {
+				out.add(numeros);
+			}
+		}
 
-        logger.info("Números gerados: {}", out);
-        return out;
-    }
+		logger.info("Números gerados: {}", out);
+		return out;
+	}
 
+	public List<ProgressaoLinearTO> tendencia(ApostaAutomaticaDTO dto) {
+		List<JogoDTO> allLotoResult = jogoService.findAllLotoResult(dto.getTipoJogo(), dto.getDataInicioCalculo());
+		logger.info("QUANTIDADE SORTEIOS: {}", allLotoResult.size());
 
-    public List<ProgressaoLinearTO> tendencia(ApostaAutomaticaDTO dto) {
-        List<JogoDTO> allLotoResult = jogoService.findAllLotoResult(dto.getTipoJogo(), dto.getDataInicioCalculo());
-        logger.info("QUANTIDADE SORTEIOS: {}", allLotoResult.size());
+		// agrupamento de jogos em grupos
+		Map<Integer, Map<Integer, Integer>> dadosAgrupado = new HashMap<>(); // TROCAR PARA MAP ??
 
-        // agrupamento de jogos em grupos
-        Map<Integer, Map<Integer, Integer>> dadosAgrupado = new HashMap<>(); // TROCAR PARA MAP ??
-
-        int grupo = 30, contadorGrupo = 0;
-        for (int i = 0, j = grupo; i <= allLotoResult.size(); i += grupo, j += grupo) {
-            List<JogoDTO> jogoDTOS = new ArrayList<>();
-            if (j <= allLotoResult.size()) {
-                jogoDTOS = allLotoResult.subList(i, j);
-                dadosAgrupado.put(contadorGrupo++, somaTotaisNumerosSorteados(jogoDTOS));
-            }
+		int grupo = 30, contadorGrupo = 0;
+		for (int i = 0, j = grupo; i <= allLotoResult.size(); i += grupo, j += grupo) {
+			List<JogoDTO> jogoDTOS = new ArrayList<>();
+			if (j <= allLotoResult.size()) {
+				jogoDTOS = allLotoResult.subList(i, j);
+				dadosAgrupado.put(contadorGrupo++, somaTotaisNumerosSorteados(jogoDTOS));
+			}
 //            Ignora o resto por enquanto
 //            else {
 //                jogoDTOS = allLotoResult.subList(i, allLotoResult.size());
 //            }
 //            dadosAgrupado.put(contadorGrupo++, somaTotaisNumerosSorteados(jogoDTOS));
-        }
+		}
 
+		logger.info("===================================================");
+		logger.info("===================================================");
+		logger.info("===================================================");
+		logger.info("AGRUPADO: {}", new JSONObject(dadosAgrupado));
+		logger.info("===================================================");
+		logger.info("===================================================");
+		logger.info("===================================================");
 
-        logger.info("===================================================");
-        logger.info("===================================================");
-        logger.info("===================================================");
-        logger.info("AGRUPADO: {}", new JSONObject(dadosAgrupado));
-        logger.info("===================================================");
-        logger.info("===================================================");
-        logger.info("===================================================");
+		// realiza a montagem dos dados
+		Map<Integer, List<EstatisticaLinhaTO>> dados = new HashMap<>();
+		for (Map.Entry<Integer, Map<Integer, Integer>> entryMap : dadosAgrupado.entrySet()) {
+			Integer i = entryMap.getKey();
 
-        // realiza a montagem dos dados
-        Map<Integer, List<EstatisticaLinhaTO>> dados = new HashMap<>();
-        for (Map.Entry<Integer, Map<Integer, Integer>> entryMap : dadosAgrupado.entrySet()) {
-            Integer i = entryMap.getKey();
+			double acumuladoY = 0.0;
+			for (Map.Entry<Integer, Integer> entry : entryMap.getValue().entrySet()) {
+				double x = entry.getKey();
+				acumuladoY += entry.getValue();
+				double g = Double.sum(i, 1) * grupo;
 
-            double acumuladoY = 0.0;
-            for (Map.Entry<Integer, Integer> entry : entryMap.getValue().entrySet()) {
-                double x = entry.getKey();
-                acumuladoY += entry.getValue();
-                double g = Double.sum(i, 1) * grupo;
+				List<EstatisticaLinhaTO> estatisticaLinhas = dados.get(entry.getKey());
+				if (estatisticaLinhas == null) {
+					estatisticaLinhas = new ArrayList<>();
+				}
 
-                List<EstatisticaLinhaTO> estatisticaLinhas = dados.get(entry.getKey());
-                if (estatisticaLinhas == null) {
-                    estatisticaLinhas = new ArrayList<>();
-                }
+				EstatisticaLinhaTO to = new EstatisticaLinhaTO(String.valueOf(x), g, acumuladoY);
+				estatisticaLinhas.add(to);
+				dados.put(entry.getKey(), estatisticaLinhas);
+			}
+		}
 
-                EstatisticaLinhaTO to = new EstatisticaLinhaTO(String.valueOf(x), g, acumuladoY);
-                estatisticaLinhas.add(to);
-                dados.put(entry.getKey(), estatisticaLinhas);
-            }
-        }
+		logger.error("VERIFICANDO MAPEAMENTO - PROVISORIO");
+		logger.info("DADOS: {}", new JSONObject(dados).toString(4));
 
-        logger.error("VERIFICANDO MAPEAMENTO - PROVISORIO");
-        logger.info("DADOS: {}", new JSONObject(dados).toString(4));
+		List<ProgressaoLinearTO> tendencia = estatisticaService.tendencia(dados);
 
-        List<ProgressaoLinearTO> tendencia = estatisticaService.tendencia(dados);
+		return tendencia;
+	}
 
-        return tendencia;
-    }
+	/**
+	 * Calcula os números "quentes" e "frios" baseados nos jogos anteriores.
+	 */
+	public Map<String, List<Integer>> calculateHotAndColdNumbers(String tipoJogo, String initialDate) {
+
+		List<List<Integer>> allPreviousGames = new ArrayList<List<Integer>>();
+
+		Map<Integer, Integer> frequencyMap = new HashMap<>();
+
+		List<JogoDTO> allGames = this.jogoService.findAllLotoResult(tipoJogo, null);
+		allGames.forEach(jogo -> {
+			List<DezenaSorteadaDTO> dezenas = jogo.getDezenas();
+			List<Integer> list = dezenas.stream().map(numero -> numero.getDezena()).toList();
+			allPreviousGames.add(list);
+		});
+
+		// Contar a frequência de cada número
+		for (List<Integer> game : allPreviousGames) {
+			for (Integer number : game) {
+				frequencyMap.put(number, frequencyMap.getOrDefault(number, 0) + 1);
+			}
+		}
+
+		// Ordenar os números por frequência
+		List<Map.Entry<Integer, Integer>> sortedEntries = new ArrayList<>(frequencyMap.entrySet());
+		sortedEntries.sort((a, b) -> b.getValue().compareTo(a.getValue()));
+
+		// Números mais frequentes (quentes) e menos frequentes (frios)
+		List<Integer> hotNumbers = sortedEntries.stream().limit(5).map(Map.Entry::getKey).collect(Collectors.toList());
+		List<Integer> coldNumbers = sortedEntries.stream().skip(sortedEntries.size() - 5).map(Map.Entry::getKey)
+				.collect(Collectors.toList());
+
+		Map<String, List<Integer>> result = new HashMap<>();
+		result.put("hot", hotNumbers);
+		result.put("cold", coldNumbers);
+
+		return result;
+	}
 }
