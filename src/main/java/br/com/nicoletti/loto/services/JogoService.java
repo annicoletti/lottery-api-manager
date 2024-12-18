@@ -62,9 +62,6 @@ public class JogoService {
     @Autowired
     private ErroLotoRepository erroLotoRepository;
 
-    @Autowired
-    private ApostaService apostaService;
-
     @Transactional
     public Page<JogoDTO> list(PageRequest pageRequest) {
         Page<JogoEntity> pageable = repository.findAll(pageRequest);
