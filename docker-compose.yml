@@ -16,6 +16,20 @@ services:
     networks:
       - app-network
 
+  loto-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: loto-api
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+    ports:
+      - "8082:8082"
+    depends_on:
+      - loto-db
+    networks:
+      - app-network 
+
 volumes:
   loto-data:
 
